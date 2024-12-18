@@ -29,6 +29,7 @@ urlpatterns = [
     # project urls
     path('admin/', admin.site.urls),
     path('api/v1/users/', include('users.urls')),
+    path('api/v1/meetings/', include('meetings.urls')),
 
     # jwt auth urls
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

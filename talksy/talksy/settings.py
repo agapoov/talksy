@@ -21,6 +21,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+SERVER_LINK = 'http://localhost:8000'
 
 # Application definition
 
@@ -35,6 +36,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'drf_yasg',
     'users',
+    'meetings',
 
 ]
 
