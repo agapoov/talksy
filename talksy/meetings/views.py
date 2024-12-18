@@ -10,8 +10,7 @@ from rest_framework.viewsets import ModelViewSet
 from utils.token import generate_token
 
 from .models import Meeting, MeetingMembership
-from .serializers import (MeetingSerializer, MeetingStatusSerializer,
-                          MeetingUpdateToken)
+from .serializers import MeetingSerializer, MeetingStatusSerializer
 
 
 class MeetingListCreate(generics.ListCreateAPIView):
@@ -48,11 +47,14 @@ class MeetingViewSet(ModelViewSet):
         meeting.delete()
         return Response({'message': 'Meeting Deleted successfully'}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['post'], url_path='update_token', serializer_class=MeetingUpdateToken)
-    def update_token(self, request, pk=None):
+    @action(detail=True, methods=['post'], url_path='update_token', serializer_class=None)
+    def update_token_view(self, request, pk=None):
         meeting = self.get_object()
         meeting.token = meeting.update_token
-        return Response({'new_link': meeting.link})
+        meeting.save()
+        return Response({'new_token': meeting.token,
+                         'new_link': {meeting.link}},
+                        status=status.HTTP_200_OK)
 
 
 class JoinMeetingView(APIView):
@@ -67,7 +69,7 @@ class JoinMeetingView(APIView):
         if meeting.token != input_token:
             return Response({'message': 'Wrong Token'}, status=status.HTTP_403_FORBIDDEN)
 
-        if request.user == meeting.owner:
+        if request.user == meeting.creator:
             if meeting.status == 'completed':
                 return Response({'message': 'Meeting is completed. Owner cannot join.'},
                                 status=status.HTTP_400_BAD_REQUEST)

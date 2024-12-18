@@ -39,8 +39,9 @@ class Meeting(models.Model):
     def link(self):
         """
         Generates a link to a meeting.
+        # -> https://talksy.ru/api/v1/meeting/<meeting_uuid>/<token>/join/
         """
-        return f'{SERVER_LINK}/meetings/{self.id}/{self.token}'  # -> https://talksy.ru/meeting/<meeting_uuid>/<token>
+        return f'{SERVER_LINK}/api/v1/meetings/{self.id}/{self.token}/join/'
 
     @property
     def update_token(self):
@@ -49,7 +50,7 @@ class Meeting(models.Model):
         except Exception as e:
             return f'Unable to generate token: {e}'
 
-        return True
+        return self.token
 
 
 class MeetingMembership(models.Model):

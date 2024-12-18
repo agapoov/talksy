@@ -24,6 +24,3 @@ class MeetingStatusSerializer(serializers.Serializer):
 
 class MeetingUpdateToken(serializers.Serializer):
     token = serializers.CharField(read_only=True)
-
-class MeetingEndSerializer(serializers.Serializer):
-    pass
