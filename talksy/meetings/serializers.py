@@ -6,7 +6,7 @@ from .models import Meeting
 
 
 class MeetingSerializer(serializers.ModelSerializer):
-    creator = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+    creator = serializers.ReadOnlyField(source='creator.username')
     token = serializers.CharField(read_only=True)
     link = serializers.SerializerMethodField()
 

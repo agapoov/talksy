@@ -4,9 +4,12 @@ from rest_framework.decorators import action
 from rest_framework.permissions import (IsAuthenticated,
                                         IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
-from .models import Meeting
+from utils.token import generate_token
+
+from .models import Meeting, MeetingMembership
 from .serializers import (MeetingSerializer, MeetingStatusSerializer,
                           MeetingUpdateToken)
 
@@ -17,12 +20,13 @@ class MeetingListCreate(generics.ListCreateAPIView):
     serializer_class = MeetingSerializer
 
     def perform_create(self, serializer):
-        serializer.save(creator=self.request.user)
+        meeting = serializer.save(creator=self.request.user)
+        MeetingMembership.objects.create(user=self.request.user, meeting=meeting, role='host')
 
 
 class MeetingViewSet(ModelViewSet):
-    queryset = Meeting.objects.all()
     serializer_class = MeetingSerializer
+    queryset = Meeting.objects.all()
     http_method_names = ['get', 'post']
 
     @action(detail=True, methods=['get'], url_path='status', serializer_class=MeetingStatusSerializer)
@@ -36,13 +40,13 @@ class MeetingViewSet(ModelViewSet):
         meeting = self.get_object()
         meeting.end_time = timezone.now()
         meeting.save()
-        return Response({"message": "Meeting ended successfully"}, status=status.HTTP_200_OK)
+        return Response({'message': 'Meeting ended successfully'}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], url_path='delete', serializer_class=None)
     def delete(self, request, pk=None):
         meeting = self.get_object()
         meeting.delete()
-        return Response({"message": "Meeting Deleted successfully"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'message': 'Meeting Deleted successfully'}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['post'], url_path='update_token', serializer_class=MeetingUpdateToken)
     def update_token(self, request, pk=None):
@@ -50,6 +54,51 @@ class MeetingViewSet(ModelViewSet):
         meeting.token = meeting.update_token
         return Response({'new_link': meeting.link})
 
-    # @action(detail=True, methods=['post'], url_path='join')
-    # def join(self, request, pk=None):
-    #     pass
+
+class JoinMeetingView(APIView):
+    def post(self, request, meeting_id, token):
+        try:
+            meeting = Meeting.objects.get(id=meeting_id)
+        except Meeting.DoesNotExist:
+            return Response({'message': 'Meeting not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        input_token = token
+
+        if meeting.token != input_token:
+            return Response({'message': 'Wrong Token'}, status=status.HTTP_403_FORBIDDEN)
+
+        if request.user == meeting.owner:
+            if meeting.status == 'completed':
+                return Response({'message': 'Meeting is completed. Owner cannot join.'},
+                                status=status.HTTP_400_BAD_REQUEST)
+            request.session['temporary_id'] = request.user.id
+            request.session['admitted'] = True
+            return Response({'message': 'ok'}, status=status.HTTP_200_OK)
+
+        if meeting.status != 'active':
+            return Response({'message': 'Meeting not active or ended'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if request.user.is_authenticated:
+            user_id = request.user.id
+            membership, created = MeetingMembership.objects.get_or_create(
+                user=request.user, meeting=meeting,
+                defaults={'role': 'participant'}
+            )
+        else:
+            anonymous_id = generate_token(20)
+            user_id = anonymous_id
+            membership, created = MeetingMembership.objects.get_or_create(
+                anonymous_id=anonymous_id, meeting=meeting,
+                defaults={'role': 'participant'}
+            )
+
+        if not created:
+            membership.left_at = None  # Clear 'left_at' if user is rejoining
+            membership.save()
+
+        request.session['temporary_id'] = user_id
+
+        # The flag indicates that the user has passed the verification and can connect to the WebSocket
+        request.session['admitted'] = True
+
+        return Response({'message': 'ok'}, status=status.HTTP_200_OK)

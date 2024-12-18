@@ -51,15 +51,22 @@ class Meeting(models.Model):
 
         return True
 
-# class MeetingMembership(models.Model):
-#     user = models.ForeignKey(User, on_delete=models.CASCADE)
-#     meeting = models.ForeignKey(Meeting, on_delete=models.CASCADE)
-#     role = models.CharField(max_length=64, choices=(
-#         ('host', 'Ведущий'),
-#         ('participant', 'Участник'),
-#     ), default='participant')
-#     joined_at = models.DateTimeField(auto_now_add=True)
-#     left_at = models.DateTimeField(null=True, blank=True)
-#
-#     def __str__(self):
-#         return f'{self.user} в встрече {self.meeting}'
+
+class MeetingMembership(models.Model):
+    ROLE_CHOICES = (
+        ('host', 'Ведущий'),
+        ('participant', 'Участник'),
+    )
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    anonymous_id = models.CharField(max_length=64, null=True, blank=True, unique=True)
+    meeting = models.ForeignKey(Meeting, on_delete=models.CASCADE)
+    role = models.CharField(max_length=64, choices=ROLE_CHOICES, default='participant')
+    joined_at = models.DateTimeField(auto_now_add=True)
+    left_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ('user', 'meeting', 'anonymous_id')
+
+    def __str__(self):
+        return f"{self.user or self.anonymous_id} in {self.meeting}"
