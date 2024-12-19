@@ -1,5 +1,4 @@
 import uuid
-from datetime import datetime
 
 from django.db import models
 from django.utils import timezone
@@ -17,7 +16,6 @@ class Meeting(models.Model):
     start_time = models.DateTimeField()  # YYYY-MM-DDTHH:MM:SSZ | 2024-12-18T15:30:00Z
     end_time = models.DateTimeField()
     token = models.CharField(max_length=100, null=False, blank=False)
-
     def save(self, *args, **kwargs):
         if not self.token:
             self.token = token.generate_token(50)
@@ -58,13 +56,19 @@ class MeetingMembership(models.Model):
         ('host', 'Ведущий'),
         ('participant', 'Участник'),
     )
-
+    CONNECTION_STATUS = (
+        ('no data', 'Нет данных'),
+        ('pending', 'Подтверждено, но не активно'),
+        ('active', 'Активно'),
+        ('closed', 'Закрыто'),
+    )
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     anonymous_id = models.CharField(max_length=64, null=True, blank=True, unique=True)
     meeting = models.ForeignKey(Meeting, on_delete=models.CASCADE)
     role = models.CharField(max_length=64, choices=ROLE_CHOICES, default='participant')
-    joined_at = models.DateTimeField(auto_now_add=True)
+    joined_at = models.DateTimeField(null=True, blank=True)
     left_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=128, choices=CONNECTION_STATUS, default='no data')
 
     class Meta:
         unique_together = ('user', 'meeting', 'anonymous_id')

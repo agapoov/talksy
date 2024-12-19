@@ -80,25 +80,26 @@ class JoinMeetingView(APIView):
         if meeting.status != 'active':
             return Response({'message': 'Meeting not active or ended'}, status=status.HTTP_400_BAD_REQUEST)
 
+        temporary_id = generate_token(20)
+
         if request.user.is_authenticated:
-            user_id = request.user.id
             membership, created = MeetingMembership.objects.get_or_create(
-                user=request.user, meeting=meeting,
+                user=request.user, anonymous_id=temporary_id, meeting=meeting,
                 defaults={'role': 'participant'}
             )
         else:
-            anonymous_id = generate_token(20)
-            user_id = anonymous_id
             membership, created = MeetingMembership.objects.get_or_create(
-                anonymous_id=anonymous_id, meeting=meeting,
-                defaults={'role': 'participant'}
+                anonymous_id=temporary_id, meeting=meeting,
+                defaults={'role': 'participant', 'status': 'pending'}
             )
 
         if not created:
-            membership.left_at = None  # Clear 'left_at' if user is rejoining
-            membership.save()
+            if membership.status == 'closed':
+                membership.status = 'pending'
+                membership.left_at = None  # Clear 'left_at' if user is rejoining
+                membership.save()
 
-        request.session['temporary_id'] = user_id
+        request.session['temporary_id'] = membership.anonymous_id
 
         # The flag indicates that the user has passed the verification and can connect to the WebSocket
         request.session['admitted'] = True
