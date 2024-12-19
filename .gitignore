@@ -11,3 +11,10 @@ venv/
 .idea
 media/
 .coverage
+
+dump.rdb
+/dump.rdb
+
+var
+log
+
