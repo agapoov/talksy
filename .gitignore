@@ -18,3 +18,5 @@ dump.rdb
 var
 log
 
+debug.log
+debug.log/

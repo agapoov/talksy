@@ -10,6 +10,7 @@ from rest_framework.viewsets import ModelViewSet
 from utils.token import generate_token
 
 from .models import Meeting, MeetingMembership
+from .permissions import IsOwnerOrReadOnly
 from .serializers import MeetingSerializer, MeetingStatusSerializer
 
 
@@ -26,6 +27,7 @@ class MeetingListCreate(generics.ListCreateAPIView):
 class MeetingViewSet(ModelViewSet):
     serializer_class = MeetingSerializer
     queryset = Meeting.objects.all()
+    permission_classes = [IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly]
     http_method_names = ['get', 'post']
 
     @action(detail=True, methods=['get'], url_path='status', serializer_class=MeetingStatusSerializer)

@@ -63,3 +63,20 @@ class UserLoginSerializer(serializers.Serializer):
                 'email': user.email
             }
         }
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = '__all__'
+
+
+class UserBlockSerializer(serializers.Serializer):
+    reason = serializers.CharField(
+        required=True,
+        min_length=10,
+        error_messages={
+            'required': 'Reason for blocking is required.',
+            'min_length': 'Reason must be at least 10 characters long.',
+        }
+    )

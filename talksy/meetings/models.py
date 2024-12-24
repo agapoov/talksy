@@ -16,6 +16,7 @@ class Meeting(models.Model):
     start_time = models.DateTimeField()  # YYYY-MM-DDTHH:MM:SSZ | 2024-12-18T15:30:00Z
     end_time = models.DateTimeField()
     token = models.CharField(max_length=100, null=False, blank=False)
+
     def save(self, *args, **kwargs):
         if not self.token:
             self.token = token.generate_token(50)

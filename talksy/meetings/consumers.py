@@ -1,6 +1,6 @@
 import json
 
-from asgiref.sync import sync_to_async
+from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.utils import timezone
 
@@ -22,18 +22,18 @@ class MeetingsConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
 
-        meeting_membership = await sync_to_async(self.get_meeting_membership)(self.temporary_id)
+        meeting_membership = await self.get_meeting_membership(self.temporary_id)
         if not meeting_membership:
             await self.close()
             return
 
-        await sync_to_async(self.update_meeting_membership)(meeting_membership)
+        await self.update_meeting_membership(meeting_membership)
 
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
 
     async def disconnect(self, close_code):
-        await sync_to_async(self.update_meeting_membership_on_disconnect)(self.temporary_id)
+        await self.update_meeting_membership_on_disconnect(self.temporary_id)
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
     async def receive(self, text_data):
@@ -43,7 +43,6 @@ class MeetingsConsumer(AsyncWebsocketConsumer):
             data = json.loads(text_data)
         except json.JSONDecodeError as e:
             return
-
         message_type = data.get('type')
 
         if message_type in ['offer', 'answer', 'ice-candidate']:
@@ -60,17 +59,20 @@ class MeetingsConsumer(AsyncWebsocketConsumer):
         if event['sender'] != self.scope['session'].get('temporary_id'):
             await self.send(text_data=json.dumps(event['message']))
 
+    @database_sync_to_async
     def get_meeting_membership(self, anonymous_id):
         try:
             return MeetingMembership.objects.get(anonymous_id=anonymous_id)
         except MeetingMembership.DoesNotExist:
             return None
 
+    @database_sync_to_async
     def update_meeting_membership(self, meeting_membership):
         meeting_membership.status = 'active'
         meeting_membership.joined_at = timezone.now()
         meeting_membership.save()
 
+    @database_sync_to_async
     def update_meeting_membership_on_disconnect(self, anonymous_id):
         try:
             meeting_membership = MeetingMembership.objects.get(anonymous_id=anonymous_id)
