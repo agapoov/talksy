@@ -1,15 +1,20 @@
-# from rest_framework import status
-# from rest_framework.views import APIView
-# from rest_framework.response import Response
-# import webso
-#
-# class TestWebSocketConnection(APIView):
-#     def get(self, request):
-#         try:
-#             websocket = WebSocketClient("ws://example.com/socket")
-#             websocket.connect()
-#             return Response({"message": "WebSocket connection successful"}, status=status.HTTP_200_OK)
-#         except Exception as e:
-#             # В случае ошибки
-#             return Response({"message": f"WebSocket connection failed: {str(e)}"},
-#                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+import websockets
+import pytest
+import json
+
+
+@pytest.mark.asyncio
+async def test_websocket_connection():
+    url = "ws://localhost:8000/ws/api/v1/meetings/355fde5e-b9da-4f17-9ab4-b608fbbcc868/"
+
+    async with websockets.connect(url) as websocket:
+        message = {
+            "type": "chat",
+            "message": "Hello world!"
+        }
+        await websocket.send(json.dumps(message))
+
+        response = await websocket.recv()
+        response_data = json.loads(response)
+
+        assert response_data["message"] == "Hello world!"

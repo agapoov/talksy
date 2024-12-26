@@ -34,6 +34,9 @@ class MeetingViewSet(ModelViewSet):
     def status(self, request, pk=None):
         meeting = self.get_object()
         serializer = MeetingStatusSerializer(instance={'status': meeting.status})
+        temporary_id = request.session.get('temporary_id')
+        admitted = request.session.get('admitted')
+        print(temporary_id, admitted)
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'], url_path='end', serializer_class=None)

@@ -14,20 +14,21 @@ class MeetingsConsumer(AsyncWebsocketConsumer):
         self.meeting_uuid = None
         self.group_name = None
         self.user_temporary_id = None
-        self.admitted = None
         self.membership_cache = None
 
     async def connect(self):
         self.meeting_uuid = self.scope['url_route']['kwargs']['meeting_uuid']
         self.group_name = f"meeting_{self.meeting_uuid}"
-        sessions = self.scope['session']
+        session = self.scope['session']
 
-        self.user_temporary_id = sessions.get('temporary_id')
-        self.admitted = sessions.get('admitted')
+        self.user_temporary_id = session.get('temporary_id')
+        self.admitted = session.get('admitted')
+        print(f"Session ID: {session.session_key if session else 'No session'}")  # log
+        print(f"Temporary ID: {session.get('temporary_id') if session else 'No session data'}")  # log
+        print(f"Admitted: {session.get('admitted') if session else 'No admitted'}")  # log
 
-        print(f"User {self.user_temporary_id} connected to group {self.group_name}")
         if not self.user_temporary_id or self.admitted is not True:
-            print('Нет доступа. сперва в /join/')
+            print('Нет доступа. сперва в /join/')  # log
             await self.close()
             return
 
@@ -36,6 +37,7 @@ class MeetingsConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
 
+        print(f"User {self.user_temporary_id} connected to group {self.group_name}")  # log
         await self.update_meeting_membership(meeting_membership)
 
         await self.channel_layer.group_add(self.group_name, self.channel_name)
@@ -57,6 +59,7 @@ class MeetingsConsumer(AsyncWebsocketConsumer):
 
         if message_type == 'chat':
             message = data.get('message')
+
             message_obj = await self.save_message(message)
             decrypted_message = message_obj.content
 
@@ -64,9 +67,9 @@ class MeetingsConsumer(AsyncWebsocketConsumer):
                 self.group_name,
                 {
                     "type": "websocket.message",
+                    "sender": self.user_temporary_id,
                     "message": {
                         "type": "chat",
-                        "sender_id": self.user_temporary_id,
                         "content": decrypted_message,
                         "timestamp": timezone.now().isoformat(),
                     }
@@ -79,21 +82,19 @@ class MeetingsConsumer(AsyncWebsocketConsumer):
                 {
                     "type": "websocket.message",
                     "message": data,
-                    "sender": self.scope['session'].get('temporary_id'),
+                    "sender": self.user_temporary_id,
                 }
             )
 
     async def websocket_message(self, event):
-        if event['sender'] != self.scope['session'].get('temporary_id'):
+        if event['sender'] != self.user_temporary_id:
             await self.send(text_data=json.dumps(event['message']))
 
     @database_sync_to_async
     def get_meeting_membership(self, anonymous_id):
-        if hasattr(self, 'membership_cache'):
-            return self.membership_cache
         try:
-            membership = MeetingMembership.objects.get(anonymous_id=anonymous_id)
-            self.membership_cache = membership
+            membership = MeetingMembership.objects.get(anonymous_id=anonymous_id, meeting__id=self.meeting_uuid)
+            print(membership)
             return membership
         except MeetingMembership.DoesNotExist:
             return None
@@ -117,7 +118,7 @@ class MeetingsConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def save_message(self, message_content):
         try:
-            meeting = Meeting.objects.get(uuid=self.meeting_uuid)
+            meeting = Meeting.objects.get(id=self.meeting_uuid)
         except ObjectDoesNotExist:
             return None
 

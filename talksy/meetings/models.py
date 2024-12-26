@@ -19,6 +19,9 @@ class Meeting(models.Model):
     end_time = models.DateTimeField()
     token = models.CharField(max_length=100, null=False, blank=False)
 
+    def __str__(self):
+        return f'Собрание {self.title}. Создатель {self.creator}'
+
     def save(self, *args, **kwargs):
         if not self.token:
             self.token = token.generate_token(50)
