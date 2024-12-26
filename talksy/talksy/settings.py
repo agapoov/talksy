@@ -135,6 +135,9 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_PERMISSION_CLASSES': [
+        'users.permissions.UserNotBlocked',
+    ]
 }
 
 # Celery
@@ -240,7 +243,7 @@ CHANNEL_LAYERS = {
 
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
 SESSION_COOKIE_NAME = "sessionid"
-
+SESSION_COOKIE_AGE = 3600
 
 # Logging
 
@@ -282,3 +285,10 @@ LOGGING = {
         },
     },
 }
+
+# Message encrypt
+
+ENCRYPTION_KEY = os.getenv('ENCRYPTION_KEY')
+
+if not ENCRYPTION_KEY:
+    raise Exception('ENCRYPTION_KEY not installed! messages will NOT be protected')

@@ -1,5 +1,7 @@
 import uuid
 
+from cryptography.fernet import Fernet
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
@@ -38,7 +40,7 @@ class Meeting(models.Model):
     def link(self):
         """
         Generates a link to a meeting.
-        # -> https://talksy.ru/api/v1/meeting/<meeting_uuid>/<token>/join/
+        # -> https://talksy.ru/api/v1/meetings/<meeting_uuid>/<token>/join/
         """
         return f'{SERVER_LINK}/api/v1/meetings/{self.id}/{self.token}/join/'
 
@@ -76,3 +78,31 @@ class MeetingMembership(models.Model):
 
     def __str__(self):
         return f"{self.user or self.anonymous_id} in {self.meeting}"
+
+
+class MeetingMessage(models.Model):
+    meeting = models.ForeignKey(Meeting, on_delete=models.CASCADE)
+    sender_id = models.CharField(max_length=1024)
+    encrypted_message = models.TextField(max_length=1024, null=False, blank=False)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'Message by {self.sender_id} in {self.meeting}'
+
+    @property
+    def content(self):
+        """"
+        decryption before sending
+        """
+        cipher_suite = Fernet(settings.ENCRYPTION_KEY)
+        return cipher_suite.decrypt(self.encrypted_message.encode()).decode()
+
+    @content.setter
+    def content(self, message_content):
+        """"
+        encryption before sending
+        """
+        if not isinstance(message_content, str):
+            raise ValueError("Message content must be a string.")
+        cipher_suite = Fernet(settings.ENCRYPTION_KEY)
+        self.encrypted_message = cipher_suite.encrypt(message_content.encode()).decode()
