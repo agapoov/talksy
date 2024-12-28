@@ -108,5 +108,5 @@ class JoinMeetingView(APIView):
 
         # The flag indicates that the user has passed the verification and can connect to the WebSocket
         request.session['admitted'] = True
-
+        # TODO мб переделать эту говнологику
         return Response({'message': 'ok'}, status=status.HTTP_200_OK)

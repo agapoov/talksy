@@ -14,7 +14,7 @@ class MeetingsConsumer(AsyncWebsocketConsumer):
         self.meeting_uuid = None
         self.group_name = None
         self.user_temporary_id = None
-        self.membership_cache = None
+        self.admitted = None
 
     async def connect(self):
         self.meeting_uuid = self.scope['url_route']['kwargs']['meeting_uuid']
@@ -23,6 +23,7 @@ class MeetingsConsumer(AsyncWebsocketConsumer):
 
         self.user_temporary_id = session.get('temporary_id')
         self.admitted = session.get('admitted')
+
         print(f"Session ID: {session.session_key if session else 'No session'}")  # log
         print(f"Temporary ID: {session.get('temporary_id') if session else 'No session data'}")  # log
         print(f"Admitted: {session.get('admitted') if session else 'No admitted'}")  # log
@@ -58,37 +59,44 @@ class MeetingsConsumer(AsyncWebsocketConsumer):
         message_type = data.get('type')
 
         if message_type == 'chat':
-            message = data.get('message')
-
-            message_obj = await self.save_message(message)
-            decrypted_message = message_obj.content
-
-            await self.channel_layer.group_send(
-                self.group_name,
-                {
-                    "type": "websocket.message",
-                    "sender": self.user_temporary_id,
-                    "message": {
-                        "type": "chat",
-                        "content": decrypted_message,
-                        "timestamp": timezone.now().isoformat(),
-                    }
-                }
-            )
-
-        if message_type in ['offer', 'answer', 'ice-candidate']:
-            await self.channel_layer.group_send(
-                self.group_name,
-                {
-                    "type": "websocket.message",
-                    "message": data,
-                    "sender": self.user_temporary_id,
-                }
-            )
+            await self.chat_message_handler(data)
+        elif message_type in ['offer', 'answer', 'ice-candidate']:
+            await self.webrtc_message_handler(data)
 
     async def websocket_message(self, event):
         if event['sender'] != self.user_temporary_id:
             await self.send(text_data=json.dumps(event['message']))
+
+    async def chat_message_handler(self, data):
+        message = data.get('message')
+        if not message:
+            return
+
+        message_obj = await self.save_message(message)
+        decrypted_message = message_obj.content
+
+        await self.channel_layer.group_send(
+            self.group_name,
+            {
+                "type": "websocket.message",
+                "sender": self.user_temporary_id,
+                "message": {
+                    "type": "chat",
+                    "content": decrypted_message,
+                    "timestamp": timezone.now().isoformat(),
+                }
+            }
+        )
+
+    async def webrtc_message_handler(self, data):
+        await self.channel_layer.group_send(
+            self.group_name,
+            {
+                "type": "websocket.message",
+                "message": data,
+                "sender": self.user_temporary_id,
+            }
+        )
 
     @database_sync_to_async
     def get_meeting_membership(self, anonymous_id):
